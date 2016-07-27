@@ -12,13 +12,16 @@
 # either express or implied. See the License for the specific
 # language governing permissions and limitations under the License.
 
-import pytest
 from decimal import Decimal
 
-from pyhdb.cursor import format_named_query
+from pyhdb.cursor import _format_named_query
 from pyhdb.exceptions import ProgrammingError, IntegrityError
-import tests.helper
 from pyhdb.resultrow import ResultRow
+import pytest
+
+import tests.helper
+
+
 TABLE = 'PYHDB_TEST_1'
 TABLE_FIELDS = 'TEST VARCHAR(255)'
 
@@ -28,10 +31,12 @@ def test_table_1(request, connection):
     """Fixture to create table for testing, and dropping it after test run"""
     tests.helper.create_table_fixture(request, connection, TABLE, TABLE_FIELDS)
 
+
 @pytest.fixture
 def test_table_2(request, connection):
     """Fixture to create table for testing, and dropping it after test run"""
     tests.helper.create_table_fixture(request, connection, 'PYHDB_TEST_2', 'TEST DECIMAL')
+
 
 @pytest.fixture
 def content_table_1(request, connection):
@@ -50,26 +55,68 @@ def content_table_1(request, connection):
 def test_format_operation_without_parameters(parameters):
     """Test that providing no parameter produces correct result."""
     operation = "SELECT * FROM TEST WHERE fuu = 'bar'"
-    assert format_named_query(operation, parameters) == (operation, ())
+    assert _format_named_query(operation, parameters) == (operation, ())
 
 
 def test_format_operation_with_named_parameters():
     """Test that correct number of parameters produces correct result."""
-    assert format_named_query(
-        "INSERT INTO TEST VALUES(:st, :in)", {'st':'Hello World', 'in': 2}
+    assert _format_named_query(
+        "INSERT INTO TEST VALUES(:st, :in)", {'st': 'Hello World', 'in': 2}
     ) == ("INSERT INTO TEST VALUES(  ?,   ?)", ('Hello World', 2))
 
 
 def test_format_operation_with_too_few_named_parameters_raises():
     """Test that providing too few parameters raises exception"""
     with pytest.raises(ProgrammingError):
-        format_named_query("INSERT INTO TEST VALUES(:st, :in)", {'st':'Hello World'})
+        _format_named_query("INSERT INTO TEST VALUES(:st, :in)", {'st': 'Hello World'})
+
 
 def test_format_operation_with_named_parameters_marker_used_twice():
     """Test that using single marker twice works"""
-    assert format_named_query("INSERT INTO TEST VALUES(:st, :in, :st)", {'st':'Hello World', 'in':2}
-    ) == ("INSERT INTO TEST VALUES(  ?,   ?,   ?)", ('Hello World', 2, 'Hello World'))
+    assert _format_named_query("INSERT INTO TEST VALUES(:st, :in, :st)", {'st': 'Hello World', 'in': 2}
+                               ) == ("INSERT INTO TEST VALUES(  ?,   ?,   ?)", ('Hello World', 2, 'Hello World'))
 
+
+def test_format_operation_inner_double_quotes():
+    assert _format_named_query(
+        'INSERT INTO TEST VALUES(":st", :in)', {'in': 2}
+    ) == ('INSERT INTO TEST VALUES(":st",   ?)', (2,))
+
+
+def test_format_operation_inner_double_quotes_escaped():
+    assert _format_named_query(
+        'INSERT INTO TEST VALUES("":st"", :in)', {'st': 'Hello World', 'in': 2}
+    ) == ('INSERT INTO TEST VALUES(""  ?"",   ?)', ('Hello World', 2))
+
+
+def test_format_operation_inner_single_quotes():
+    assert _format_named_query(
+        "INSERT INTO TEST VALUES(':st', :in)", {'st': 'Hello World', 'in': 2}
+    ) == ("INSERT INTO TEST VALUES(':st',   ?)", (2,))
+
+
+def test_format_operation_inner_single_quotes_escaped():
+    assert _format_named_query(
+        "INSERT INTO TEST VALUES('':st'', :in)", {'st': 'Hello World', 'in': 2}
+    ) == ("INSERT INTO TEST VALUES(''  ?'',   ?)", ('Hello World', 2))
+
+
+def test_format_operation_inner_mixed_quotes_both():
+    assert _format_named_query(
+        """INSERT INTO TEST VALUES(':st', ":in")""",
+    ) == ("""INSERT INTO TEST VALUES(':st', ":in")""", ())
+
+
+def test_format_operation_inner_mixed_quotes_single():
+    assert _format_named_query(
+        """INSERT INTO TEST VALUES("':st', :in)""", {'in': 2}
+    ) == ("""INSERT INTO TEST VALUES("':st',   ?)""", (2,))
+
+
+def test_format_operation_marker_quoted_and_not_quoted():
+    assert _format_named_query(
+        """INSERT INTO TEST VALUES("':st', :st)""", {'st': 2}
+    ) == ("""INSERT INTO TEST VALUES("':st',   ?)""", (2,))
 
 
 @pytest.mark.hanatest
@@ -87,6 +134,7 @@ def test_cursor_fetchall_single_row(connection):
     result = cursor.fetchall()
     assert result == [ResultRow((), (1,))]
 
+
 @pytest.mark.hanatest
 def test_cursor_fetchall_multiple_rows(connection):
     cursor = connection.cursor()
@@ -94,6 +142,7 @@ def test_cursor_fetchall_multiple_rows(connection):
 
     result = cursor.fetchall()
     assert len(result) == 10
+
 
 @pytest.mark.hanatest
 def test_acess_with_column_name(connection):
@@ -156,7 +205,6 @@ def test_cursor_execute_with_params5(connection, test_table_1, content_table_1):
     assert cursor.execute(sql, {'test': 'row2'}).fetchall() == [ResultRow(("test",), ('row2',))]
     # also correct way, additional dict value should just be ignored
     assert cursor.execute(sql, {'test': 'row2', 'd': 2}).fetchall() == [ResultRow(("test",), ('row2',))]
-
 
 
 @pytest.mark.hanatest
@@ -241,8 +289,8 @@ def test_cursor_executemany_named_expansion(connection, test_table_1):
     cursor.executemany(
         "INSERT INTO {} VALUES(:test)".format(TABLE),
         (
-            {"test":"Statement 1"},
-            {"test":"Statement 2"}
+            {"test": "Statement 1"},
+            {"test": "Statement 2"}
         )
     )
 
@@ -266,6 +314,7 @@ def test_cursor_executemany_hana_expansion(connection, test_table_1):
     cursor.execute("SELECT * FROM %s" % TABLE)
     result = cursor.fetchall()
     assert result == [ResultRow((), ('Statement 1',)), ResultRow((), ('Statement 2',))]
+
 
 @pytest.mark.hanatest
 def test_cursor_executemany_mixed_list_tuple(connection, test_table_1):
@@ -293,9 +342,10 @@ def test_cursor_executemany_mixed_list_dict(connection, test_table_1):
             "INSERT INTO %s VALUES(:1)" % TABLE,
             (
                 ["Statement 1"],
-                {"test":"Statement 2"}
+                {"test": "Statement 2"}
             )
         )
+
 
 @pytest.mark.hanatest
 def test_cursor_executemany_mixed_list_dict2(connection, test_table_1):
@@ -305,10 +355,11 @@ def test_cursor_executemany_mixed_list_dict2(connection, test_table_1):
         cursor.executemany(
             "INSERT INTO %s VALUES(:test)" % TABLE,
             (
-                {"test":"Statement 2"},
+                {"test": "Statement 2"},
                 ["Statement 1"]
             )
         )
+
 
 @pytest.mark.hanatest
 def test_IntegrityError_on_unique_constraint_violation(connection, test_table_1):
@@ -318,6 +369,7 @@ def test_IntegrityError_on_unique_constraint_violation(connection, test_table_1)
     cursor.execute("INSERT INTO %s VALUES('Value 1')" % TABLE)
     with pytest.raises(IntegrityError):
         cursor.execute("INSERT INTO %s VALUES('Value 1')" % TABLE)
+
 
 @pytest.mark.hanatest
 def test_prepared_decimal(connection, test_table_2):
