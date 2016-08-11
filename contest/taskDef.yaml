@@ -1,0 +1,26 @@
+version: 0.1
+name: pyhdb-test
+containers:
+    - name: pytest-runner
+      image: docker.wdf.sap.corp:51037/contest/pytest-runner:2.7
+      command: ['bash', '-c', 'python /src/${REPO_NAME}/contest/run_tests.py /src/${REPO_NAME}/tests/']
+      resources:
+            requests:
+              cpu: 1000m
+              memory: 500m
+      withHelpers:
+          - kind: exportDir
+            mountPath: /exports
+          - kind: syncEventSources
+            mountPath: /src
+          - kind: injectEventData
+
+    - name: hana
+      image: docker.wdf.sap.corp:51037/contest/ppms_hana_112_04_standalone:1.0
+      resources:
+            requests:
+                cpu: 2000m
+                memory: 12Gi
+
+      command:  ['bash', '/tools/build', '/tools/wait.sh'] 
+mainContainer: pytest-runner
