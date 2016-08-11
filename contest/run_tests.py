@@ -13,10 +13,11 @@ def main():
             break
         else:
             print("hana not available yet, retrying...")
-            time.sleep(1)
-    
-    pytest.main(sys.argv[1:])
+            time.sleep(10)
 
+    rc = pytest.main(sys.argv[1:])
+    if rc != 0:
+        sys.exit("pytest run has failed")
 
 if __name__ == "__main__":
     main()
