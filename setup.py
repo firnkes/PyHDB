@@ -12,9 +12,11 @@
 # either express or implied. See the License for the specific
 # language governing permissions and limitations under the License.
 
-import os
 import codecs
+import os
+
 from setuptools import setup, find_packages
+
 
 source_location = os.path.abspath(os.path.dirname(__file__))
 
@@ -27,6 +29,7 @@ def get_version():
 def get_long_description():
     with codecs.open(os.path.join(source_location, "README.rst"), 'r', 'utf-8') as readme:
         return readme.read()
+
 
 setup(
     name="pyhdb-sap-prod",
@@ -42,9 +45,11 @@ setup(
     zip_safe=False,
     provides=["pyhdb"],
     obsoletes=["pyhdb"],
+    setup_requires=["pytest-runner>=2.0.0",
+                    ],
     tests_require=[
         "pytest>=2.5.2",
-        "mock>=1.0.1"
+        "mock>=1.0.1",
     ],
     classifiers=[  # http://pypi.python.org/pypi?%3Aaction=list_classifiers
         'Development Status :: 4 - Beta',
