@@ -15,10 +15,13 @@
 # Test additional features of pyhdb.Connection
 
 import os
-import pytest
+import socket
 
 from pyhdb.connection import Connection
+from pyhdb.exceptions import Error
+import mock
 import pyhdb
+import pytest
 
 
 @pytest.mark.hanatest
@@ -63,3 +66,12 @@ def test_make_connection_from_pytest_ini():
     if not os.path.isfile('pytest.ini'):
         pytest.skip("Requires pytest.ini file")
     connection = pyhdb.connect.from_ini('pytest.ini')
+
+
+@mock.patch.object(socket, "create_connection")
+def test_connection_refused(mock_socket):
+    mock_socket.side_effect = socket.error("TEST ERROR")
+    with pytest.raises(Error) as e:
+        pyhdb.connect("localhost", 30015, "Fuu", "Bar")
+
+    assert e.value.message[0] == "TEST ERROR"
